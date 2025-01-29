@@ -1,23 +1,68 @@
 import unittest
 from random import randint
+from typing import Tuple, Any
 
-from src.base_calc import order
+from src.base_calc import numberToBase, order
 from src.range_optimization_nonrestricted import crange, to_number_special
 
 
-def compare_range(start, stop, step, base) -> bool:
-    print(start, stop, step, base)
+def compare_range_fast(start, stop, step, base, debug = False) -> tuple[Any, Any, Any, Any] | None:
+    if debug: print(start, stop, step, base)
+    reference = range(start, stop, step)
+    rn, l = crange(start, stop, step, base)
+
+    matching = True
+    k = 0
+    o = order(step, base)
+    # numbers is wrong still
+    for n in rn.numbers(base, len(numberToBase(stop, base)) - 1 + o):
+        at_p = n in reference
+        if debug and not at_p: print(f"path_{k} {p} not included")
+        matching = matching and at_p
+        k += 1
+
+    if debug and k != len(reference): print(f"number of paths {k} (expected {len(reference)})")
+    if matching and len(reference) == k:
+        return None
+    else:
+        return (start, stop, step, base)
+
+def compare_range(start, stop, step, base) -> tuple[Any, Any, Any, Any] | None:
+    # print(start, stop, step, base)
     rn, l = crange(start, stop, step, base)
 
     wanted_range = list(range(start, stop, step))
-    opt_range = [to_number_special(i, order(step, base), base) for i in (sorted(map(tuple, rn.paths())))]
+    o = order(step, base)
+    opt_range = [to_number_special(i, o, base) for i in rn.paths()]
+    opt_range.sort()
 
-    return wanted_range == opt_range
+    if wanted_range == opt_range:
+        return None
+    else:
+        return (start, stop, step, base)
 
 def compare_ranges(args) -> list[tuple]:
     return [a for a in args if not compare_range(*a)]
 
+def compare_ranges_fast(args) -> list[tuple]:
+    ret = []
+    for a in args:
+        r = compare_range_fast(*a)
+        if r is not None:
+            ret.append(r)
+    return ret
 
+from multiprocessing import Pool
+
+# def compare_ranges_par(args) -> list[tuple]:
+#     p = Pool()
+#     res = p.map(lambda a: None if compare_range(*a) else a, args)
+#     return [a for a in res if a is not None]
+
+def compare_ranges_par(args) -> list[tuple]:
+    p = Pool()
+    res = p.starmap(compare_range, args)
+    return [a for a in res if a is not None]
 
 class HandpickedTests(unittest.TestCase):
     def test_only_one_path(self):
@@ -55,7 +100,8 @@ class HandpickedTests(unittest.TestCase):
             (47, 200, 15, 10),
             (101, 229, 66, 10),
             (121, 1165, 3, 10),
-            (94210, 94283, 24, 2)   # start_group reset
+            (94210, 94283, 24, 2),   # start_group reset
+            (499, 4099, 16, 16)
         ]
 
         self.assertListEqual([], compare_ranges(tests))
@@ -97,24 +143,24 @@ class GeneratedTestCases(unittest.TestCase):
         if not base:
             base = randint(2, 200)
 
-        step = randint(1, 99)
-        start = randint(0, 100000)
-        stop = randint(start, 300000)
+        step = randint(1, 9999)
+        start = randint(0, 1000000)
+        stop = randint(start, 3000000)
 
         return start, stop, step, base
 
-
     def test_base_10(self):
-        tests = [self.param_generator(10) for _ in range(100)]
-        self.assertListEqual([], compare_ranges(tests))
+        # warning takes a very long time now
+        tests = [self.param_generator(10) for _ in range(1000000)]
+        self.assertListEqual([], compare_ranges_par(tests))
 
     def test_base_16(self):
-        tests = [self.param_generator(16) for _ in range(100)]
-        self.assertListEqual([], compare_ranges(tests))
+        tests = [self.param_generator(16) for _ in range(1000000)]
+        self.assertListEqual([], compare_ranges_par(tests))
 
     def test_random_bases(self):
-        tests = [self.param_generator() for _ in range(100)]
-        self.assertListEqual([], compare_ranges(tests))
+        tests = [self.param_generator() for _ in range(1000000)]
+        self.assertListEqual([], compare_ranges_par(tests))
 
 
 if __name__ == '__main__':

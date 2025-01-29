@@ -23,7 +23,7 @@ def nth(it, n):
     return x
 
 
-def crange(start: int, stop: int, step: int, base: int) -> tuple[Node, list[Node]]:
+def crange(start: int, stop: int, step: int, base: int, debug = False) -> tuple[Node, list[Node]]:
   BASE = base
   assert base > 1
   assert step > 0
@@ -31,15 +31,15 @@ def crange(start: int, stop: int, step: int, base: int) -> tuple[Node, list[Node
   assert start <= stop
 
   if stop == start:
-    return # TODO empty graph??
+    return (Node({}, []), [])
 
   start_split_1 = numberToBase(start, base)
 
   if stop - start <= step:
     l = []
-    prev_node = ()
+    prev_node = None
     if order(step, base) >= order(start, base):
-      curr_node = Node({start: ()}, l)
+      curr_node = Node({start: None}, l)
     else:
       trail, leaf = start_split_1[:-(order(step, base) + 1)], to_number(start_split_1[-(order(step, base) + 1):], base)
       trail.reverse()
@@ -69,8 +69,8 @@ def crange(start: int, stop: int, step: int, base: int) -> tuple[Node, list[Node
 
 
   # print("last number", last_number)
-  print(last_number_split)
-  print(start, start_split)
+  if debug: print(last_number_split)
+  if debug: print(start, start_split)
 
   # print("to add", to_add)
 
@@ -88,7 +88,7 @@ def crange(start: int, stop: int, step: int, base: int) -> tuple[Node, list[Node
   pat_start_idx = pat.index(to_number(start_split_[-(order(step, base) + 1):], base))
   pat_stop_idx = pat.index(to_number(last_number_split[-(order(step, base) + 1):], base))
 
-  print("pattern", pat)
+  if debug: print("pattern", pat)
   # print("first idx", pat_start_idx)
   # print("stop idx", pat_stop_idx)
 
@@ -111,7 +111,7 @@ def crange(start: int, stop: int, step: int, base: int) -> tuple[Node, list[Node
   stop_group, stop_idx = find_group(pat, r1_, to_number(last_number_split[-(order(step, base) + 1):], base))
   separate_stop_group = (stop_idx != (r1_[stop_group] - 1))
 
-  print("(start group, start index)", (start_group, start_idx))
+  if debug: print("(start group, start index)", (start_group, start_idx))
   # print("(stop group, stop index)", (stop_group, stop_idx))
 
 
@@ -127,7 +127,7 @@ def crange(start: int, stop: int, step: int, base: int) -> tuple[Node, list[Node
   pat_it = iter(cycle(pat))
 
   if len(last_number_split_) == (order(step, base) + 1):
-    lv1_node = Node(dict(zip(pat[pat_start_idx:pat_stop_idx + 1], repeat(()))), l)
+    lv1_node = Node(dict(zip(pat[pat_start_idx:pat_stop_idx + 1], repeat(None))), l)
     lvs = [[lv1_node]]
     to_add.reverse()
     for e in to_add:
@@ -136,7 +136,7 @@ def crange(start: int, stop: int, step: int, base: int) -> tuple[Node, list[Node
     return lvs[-1][0], l
 
   for tk in r1_:
-    lv1.append(Node(dict(zip(islice(pat_it, tk), repeat(()))), l))
+    lv1.append(Node(dict(zip(islice(pat_it, tk), repeat(None))), l))
 
   lvs = [lv1]
 
@@ -148,7 +148,7 @@ def crange(start: int, stop: int, step: int, base: int) -> tuple[Node, list[Node
     last_idx_start_group = pat_start_idx + r1_[start_group] - (start_idx + 1)
     # print("last_idx_start_group", last_idx_start_group)
 
-    lv1_start_node = Node(dict(zip(pat[pat_start_idx:last_idx_start_group + 1], repeat(()))), l)
+    lv1_start_node = Node(dict(zip(pat[pat_start_idx:last_idx_start_group + 1], repeat(None))), l)
     # print("start lvl", lv1_start_node.cd)
 
     curr_start_node = lv1_start_node
@@ -158,16 +158,16 @@ def crange(start: int, stop: int, step: int, base: int) -> tuple[Node, list[Node
 
   if separate_stop_group:
     first_idx_stop_group = pat_stop_idx - stop_idx
-    print("last_idx_stop_group", first_idx_stop_group)
+    if debug: print("last_idx_stop_group", first_idx_stop_group)
 
 
-    lv1_stop_node = Node(dict(zip(pat[first_idx_stop_group:pat_stop_idx + 1], repeat(()))), l)
-    print("start lvl stop node", lv1_stop_node.cd)
+    lv1_stop_node = Node(dict(zip(pat[first_idx_stop_group:pat_stop_idx + 1], repeat(None))), l)
+    if debug: print("start lvl stop node", lv1_stop_node.cd)
 
     curr_stop_node = lv1_stop_node
 
   if order(last_number, base) == order(step, base) + 1:
-    print("NEW CASE")
+    if debug: print("NEW CASE")
 
   # intermediate layers
 
@@ -178,10 +178,9 @@ def crange(start: int, stop: int, step: int, base: int) -> tuple[Node, list[Node
   eq_stop_node = stop_group
 
   for i, nns in enumerate(size_intermediate_layers):
+    if debug: print("LAYER", i)
 
-    print("LAYER", i)
-
-    print(separate_start_group, separate_stop_group)
+    if debug: print(separate_start_group, separate_stop_group)
     # print("stop group", stop_group)
     # print("stop_groups_to_skip", stop_groups_to_skip)
 
@@ -223,9 +222,9 @@ def crange(start: int, stop: int, step: int, base: int) -> tuple[Node, list[Node
 
 
       else:
-        print("CASE start_split[curr_start_idx] == 0")
+        if debug: print("CASE start_split[curr_start_idx] == 0")
         # print("curr_start", start_split_[curr_start_idx])
-        print("I will skip", start_group)
+        if debug: print("I will skip", start_group)
         lv_prev_it = iter(cycle(lv_prev))
         list(islice(lv_prev_it, start_group))   # ???
 
@@ -289,7 +288,7 @@ def crange(start: int, stop: int, step: int, base: int) -> tuple[Node, list[Node
     start_group = 0
 
 
-  print("end", separate_start_group, separate_stop_group)
+  if debug: print("end", separate_start_group, separate_stop_group)
 
   # top layer
   lv_top = []
@@ -335,7 +334,7 @@ def crange(start: int, stop: int, step: int, base: int) -> tuple[Node, list[Node
 
 
 
-def to_number_special(p: list[int], o: int, base) -> int:
+def to_number_special(p: list[int], o: int, base: int) -> int:
   # BASE = 10 => to_number_special([3, 2, 15], 1) = 3215
   # BASE = 10 => to_number_special([3, 2, 15], 2) = 32015
   return p[-1] + sum((base**(i + o + 1))*e for i, e in enumerate(reversed(p[:-1])))
