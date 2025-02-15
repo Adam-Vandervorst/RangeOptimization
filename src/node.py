@@ -6,29 +6,44 @@ class Node:
         self.cd = cd      # dict of outgoing edges
         l.append(self)
 
+    def used(self, s: set):
+        for k, v in self.cd.items():
+            if isinstance(v, Node):
+                if v not in s:
+                    v.used(s)
+        s.add(self)
+
     def paths(self):
         for k, v in self.cd.items():
-            if v is None:
-                yield [k]
-            else:
+            if isinstance(v, Node):
                 for p in v.paths():
                     yield [k] + p
-
-    def numbers(self, base, offset, depth: int = 0):
-        for k, v in self.cd.items():
-            if v is None:
-                yield k
             else:
-                prefix = k * base**(offset - depth)
-                for p in v.numbers(base, offset, depth + 1):
-                    yield prefix + p
+                yield [k]
 
     def graphviz(self):
         for k, v in self.cd.items():
-            if v is None:
-                print(f"n{self.idc} -> {k}")
-            else:
+            if isinstance(v, Node):
                 print(f"n{self.idc} -> n{v.idc} [label={k}]")
+            else:
+                print(f"n{self.idc} -> {k}")
+
+    def graphviz_abstract(self, draw_vs=False):
+        cs = {v for k, v in self.cd.items() if isinstance(v, Node)}
+        for c in cs:
+            print(f"n{self.idc} -> n{c.idc}")
+        if draw_vs:
+            vs = {k for k, v in self.cd.items() if not isinstance(v, Node)}
+            if vs:
+                print(f"n{self.idc} [label=\"{vs}\"]")
+            else:
+                print(f"n{self.idc} [label=\"{{}}\"]")
+
+    def full_dict(self):
+        def rec(n):
+            return {k: rec(v) for k, v in n.cd.items()} if isinstance(n, Node) else str(n)
+
+        return {k: rec(v) for k, v in self.cd.items()}
 
     def __repr__(self):
         nested = {k: str(v) for k, v in self.cd.items()}

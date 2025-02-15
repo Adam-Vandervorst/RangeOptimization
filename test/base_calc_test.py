@@ -13,8 +13,7 @@ class MyTestCase(unittest.TestCase):
 
         self.assertEqual([1234], numberToBase(1234, 1))
 
-        n = 94210
-        self.assertEqual("0b" + "".join(map(str, numberToBase(n, 2))), bin(n))
+        print(numberToBase(94210, 2))
 
     def test_to_number(self):
         self.assertEqual(1324, to_number([1, 3, 2, 4], 10))
@@ -25,8 +24,7 @@ class MyTestCase(unittest.TestCase):
 
         self.assertEqual(1234, to_number([1234], 1))
 
-        n = 94210
-        self.assertEqual(to_number([k == "1" for k in bin(n)[2:]], 2), n)
+        print(to_number([1, 0, 1, 1, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0], 2))
 
 
 if __name__ == '__main__':

@@ -1,12 +1,24 @@
 from math import gcd
 
-from src.base_calc import order
+from src.base_calc import numberToBase
 
 
 def find_last_number_of_range(start, stop, step):
   rem = stop%step
   offset = start%step
   return stop + offset - rem - (step if offset >= rem else 0)
+
+
+def find_group_and_index(l, group_division, n):
+  idx = l.index(n)
+
+  p = 0
+  for g_number, g_size in enumerate(group_division):
+    g_place = idx - p
+    p += g_size
+    if p > idx:
+      return idx, g_number, g_place
+
 
 def find_group(l, group_division, n):
   idx = l.index(n)
@@ -37,10 +49,10 @@ def number_of_nodes_per_layer(start: list, last_n: list, step: int, base):
 
   upper_layer_edges = last_n[0] - start[0] + 1  # number of edges starting from top node
 
-  num_nodes = int(step/gcd(base**(order(step, base) + 1), step))  # ??
+  num_nodes = int(step / gcd(base ** (len(numberToBase(step, base))), step))  # ??
   upper_layer_nodes = min(upper_layer_edges, num_nodes)
 
-  num_intermediate_layers = (len(last_n) - 1) - order(step, base) - 1
+  num_intermediate_layers = (len(last_n) - 1) - len(numberToBase(step, base))
   if num_intermediate_layers <= 0:
     return []
   size_intermediate_layers = [upper_layer_nodes]  # number of nodes in each layer
@@ -53,6 +65,31 @@ def number_of_nodes_per_layer(start: list, last_n: list, step: int, base):
     prev_layer_nodes = curr_layer_nodes
 
   return size_intermediate_layers
+
+# def chop_repetition(ro, si, ei):
+#   ss = 0
+#   sgi = 0
+#   while ss < si:
+#     ss += ro[sgi]
+#     sgi += 1
+#
+#   es = sum(ro) - 1
+#   egi = len(ro)
+#   while es >= ei:
+#     es -= ro[sgi]
+#     egi -= 1
+#
+#   return [ro[sgi] - (ss - si)] + ro[sgi:egi] + [ro[egi] - (ei - es)]
+#
+#
+# if __name__ == '__main__':
+#     print(chop_repetition([3, 4, 3], 1, 7))
+#     print(chop_repetition([3, 4, 3], 8, 7))
+
+
+# nr dropwhile(takewhile(ro, _ < si), _ < len(ro) - ei)
+# nr[0] -= si - sfound
+# nr[-1] -= ei - efound
 
 # def how_many_cicles(boxes, arrows, box_nr, arrow_nr):
 #   for i in range(100):
