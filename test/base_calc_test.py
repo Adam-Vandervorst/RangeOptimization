@@ -1,19 +1,19 @@
 import unittest
 
-from src.base_calc import numberToBase, to_number
+from src.base_calc import to_digits, to_number
 
 
 class MyTestCase(unittest.TestCase):
     def test_number_to_base(self):
-        self.assertEqual([1, 3, 2, 4], numberToBase(1324, 10))
+        self.assertEqual([1, 3, 2, 4], to_digits(1324, 10))
 
-        self.assertEqual([0], numberToBase(0, 5))
+        self.assertEqual([0], to_digits(0, 5))
 
-        self.assertEqual([1, 0, 1, 0], numberToBase(10, 2))
+        self.assertEqual([1, 0, 1, 0], to_digits(10, 2))
 
-        self.assertEqual([1234], numberToBase(1234, 1))
+        self.assertEqual([1234], to_digits(1234, 1))
 
-        print(numberToBase(94210, 2))
+        print(to_digits(94210, 2))
 
     def test_to_number(self):
         self.assertEqual(1324, to_number([1, 3, 2, 4], 10))

@@ -1,9 +1,7 @@
-
-
 class Node:
     def __init__(self, cd, l):
-        self.idc = len(l) # node id
-        self.cd = cd      # dict of outgoing edges
+        self.idc = len(l)  # node id
+        self.cd = cd  # dict of outgoing edges
         l.append(self)
 
     def used(self, s: set):

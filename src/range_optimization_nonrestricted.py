@@ -3,339 +3,302 @@ from collections import deque
 from itertools import repeat, cycle, islice
 from math import gcd
 
-from src.base_calc import numberToBase, to_number, to_size
-from src.leaf_extension import make_leaf_nodes, next_step, last_layer
+from src.base_calc import to_digits, to_number, to_size
+from src.leaf_extension import make_leaf_nodes, next_step, last_layer, last_layer_grouped
 from src.node import Node
 from src.pattern import pattern_and_repetition
 from src.range_utility import find_last_number_of_range, strip_equal_start, number_of_nodes_per_layer, find_group, \
-  find_group_and_index
+    find_group_and_index
 
 
 def skip_elements(iterator, count):
-  deque(islice(iterator, count), maxlen=0)
+    deque(islice(iterator, count), maxlen=0)
 
 
-def base_layer_with_offset(offset, step, base, l, n_steps=None):
-  # assert offset < step
+def base_layer_with_offset(offset, step, base, l, n_steps=None, grouped=False):
+    # assert offset < step
 
-  step_split = numberToBase(step, base)
-  n_layers = len(step_split)
+    step_split = to_digits(step, base)
+    n_layers = len(step_split)
 
-  assert n_layers > 1
+    assert n_layers > 1
 
-  offset_split = to_size(numberToBase(offset, base), n_layers)
+    offset_split = to_size(to_digits(offset, base), n_layers)
 
-  lv_prev = make_leaf_nodes(offset_split[-1], step_split[-1], base, l, n_steps)
+    lv_prev = make_leaf_nodes(offset_split[-1], step_split[-1], base, l, n_steps)
 
-  for i in range(2, n_layers):
-    lv_prev = next_step(offset_split[-i:], step_split[-i:], lv_prev, base, l, n_steps)
+    for i in range(2, n_layers):
+        lv_prev = next_step(offset_split[-i:], step_split[-i:], lv_prev, base, l, n_steps)
 
-  return last_layer(offset_split, step_split, lv_prev, base, l, n_steps)
+    if grouped:
+        return last_layer_grouped(offset_split, step_split, lv_prev, base, l, n_steps)
+    return last_layer(offset_split, step_split, lv_prev, base, l, n_steps)
 
 
 def crange(start: int, stop: int, step: int, base: int) -> tuple[Node, list[Node]]:
-  assert base > 1
-  assert step > 0
-  assert start >= 0
-  assert start <= stop
+    assert base > 1
+    assert step > 0
+    assert start >= 0
+    assert start <= stop
 
-  if stop == start:
-    return # TODO empty graph??
+    if stop == start:
+        return  # TODO empty graph??
 
-  l = []
-  start_split_1 = numberToBase(start, base)
+    l = []
+    start_split_1 = to_digits(start, base)
 
-  # Generate a tree with only the start number
-  if stop - start <= step:
-    curr_node = ()
+    # Generate a tree with only the start number
+    if stop - start <= step:
+        curr_node = ()
 
-    for s in reversed(start_split_1):
-      curr_node = Node({s: curr_node}, l)
+        for s in reversed(start_split_1):
+            curr_node = Node({s: curr_node}, l)
 
-    return curr_node, l
+        return curr_node, l
 
+    last_number = find_last_number_of_range(start, stop, step)
+    last_number_split = to_digits(last_number, base)
 
-  last_number = find_last_number_of_range(start, stop, step)
-  last_number_split = numberToBase(last_number, base)
+    start_split = to_size(start_split_1, len(last_number_split))
+    offset = start % step
 
-  start_split = to_size(start_split_1, len(last_number_split))
-  offset = start%step
+    step_order = len(to_digits(step, base))
+    std_nodes = int(step / gcd(base ** step_order, step))
 
-  step_order = len(numberToBase(step, base))
-  std_nodes = int(step / gcd(base ** step_order, step))
+    start_split_, last_number_split_, to_add = strip_equal_start(start_split, last_number_split)
 
-  start_split_, last_number_split_, to_add = strip_equal_start(start_split, last_number_split)
+    # calculate the number of nodes in each layer, which is not the lowest or highest layer
+    size_intermediate_layers = number_of_nodes_per_layer(start_split_, last_number_split_, step, base)
 
+    pat, r1 = pattern_and_repetition(step, offset, base, extended=True)
 
-  # calculate the number of nodes in each layer, which is not the lowest or highest layer
-  size_intermediate_layers = number_of_nodes_per_layer(start_split_, last_number_split_, step, base)
+    pat_start_idx, start_group, start_idx = find_group_and_index(pat, r1, to_number(start_split_[-step_order:], base))
+    separate_start_group: bool = (start_idx != 0)
+    assert pat_start_idx <= sum(r1)
 
+    pat_stop_idx, stop_group, stop_idx = find_group_and_index(pat, r1, to_number(last_number_split[-step_order:], base))
+    separate_stop_group: bool = (stop_idx != (r1[stop_group] - 1))
 
-  pat, r1 = pattern_and_repetition(step, offset, base, extended=True)
+    assert (last_number - start) % step == 0
+    n_paths = ((last_number - start) // step) + 1
+    small_range = n_paths < len(pat)
 
-  pat_start_idx, start_group, start_idx = find_group_and_index(pat, r1, to_number(start_split_[-step_order:], base))
-  separate_start_group: bool = (start_idx != 0)
-  assert pat_start_idx <= sum(r1)
+    # bottom layer (leaf nodes)
 
-  pat_stop_idx, stop_group, stop_idx = find_group_and_index(pat, r1, to_number(last_number_split[-step_order:], base))
-  separate_stop_group: bool = (stop_idx != (r1[stop_group] - 1))
+    # in the case there will only be one layer (only leaf nodes)
+    # e.g. in base range(0, 9, 3) range(0, 45, 10), range(3500, 9000, 1500)
+    if len(last_number_split_) == step_order:
+        if step < base:
+            curr_node = Node(dict(zip(pat[pat_start_idx:pat_stop_idx + 1], repeat(()))), l)
+        elif small_range:
+            curr_node = base_layer_with_offset(start, step, base, l, n_paths, grouped=True)[0]
+        else:
+            curr_node = base_layer_with_offset(offset, step, base, l, None, grouped=True)[0]
 
+        for e in reversed(to_add):
+            curr_node = Node({e: curr_node}, l)
 
-  # bottom layer (leaf nodes)
+        return curr_node, l
 
-  # in the case there will only be one layer (only leaf nodes)
-  if len(last_number_split_) == step_order:
-    n_paths = int((last_number - start) / step) + 1
-    if n_paths < len(pat):
-      step_split = numberToBase(step, base)
-      n_layers = len(step_split)
+    # make leaf layer
 
-      start_split = to_size(numberToBase(start, base), n_layers)
-
-      if n_layers == 1:
-        curr_node = Node(dict(zip(pat[pat_start_idx:pat_stop_idx + 1], repeat(()))), l)
-
-      else:
-        lv_prev = make_leaf_nodes(start_split[-1], step_split[-1], base, l, n_paths)
-
-        for i in range(2, n_layers):
-          lv_prev = next_step(start_split[-i:], step_split[-i:], lv_prev, base, l, n_paths)
-
-        lv_prev_it = iter(cycle(lv_prev))
-        # skip_elements(lv_prev_it, pat_start_idx)
-        partial_pat = islice(lv_prev_it, pat_stop_idx + 1)
-        assert (pat_start_idx <= pat_stop_idx)
-        pat_ = [to_size(numberToBase(i, base), len(step_split))[0] for i in pat[pat_start_idx:pat_stop_idx + 1]]
-
-        curr_node = Node(dict(zip(pat_, partial_pat)), l)
-
+    if step < base:
+        pat_it = iter(cycle(pat))
+        lv1 = [Node(dict(zip(islice(pat_it, tk), repeat(()))), l) for tk in r1]
     else:
-      step_split = numberToBase(step, base)
-      n_layers = len(step_split)
+        if small_range:  # also correct if always false; unused node optimization
+            # print("start idx", pat_start_idx, pat_stop_idx)
+            lv1 = base_layer_with_offset(start, step, base, l, n_paths)
+            separate_start_group = False
+            separate_stop_group = False
 
-      offset_split = to_size(numberToBase(offset, base), n_layers)
+            start_group = 0
+            stop_group = len(lv1) - 1
+        else:
+            lv1 = base_layer_with_offset(offset, step, base, l)
 
-      if n_layers == 1:
-        curr_node = Node(dict(zip(pat[pat_start_idx:pat_stop_idx + 1], repeat(()))), l)
+    lv_prev = lv1
 
-      else:
-        lv_prev = make_leaf_nodes(offset_split[-1], step_split[-1], base, l)
+    # extra start node
+    curr_start_node = None
+    curr_start_idx = - (step_order + 1)
 
-        for i in range(2, n_layers):
-          lv_prev = next_step(offset_split[-i:], step_split[-i:], lv_prev, base, l)
-
-        lv_prev_it = iter(cycle(lv_prev))
-        skip_elements(lv_prev_it, pat_start_idx)
-        partial_pat = islice(lv_prev_it, pat_stop_idx + 1)
-        assert (pat_start_idx <= pat_stop_idx)
-        pat_ = [to_size(numberToBase(i, base), len(step_split))[0] for i in pat[pat_start_idx:pat_stop_idx + 1]]
-
-        curr_node = Node(dict(zip(pat_, partial_pat)), l)
-
-    to_add.reverse()
-    for e in to_add:
-      curr_node = Node({e: curr_node}, l)
-
-    return curr_node, l
-
-  # make leaf layer
-
-  small_range = False
-  if step < base:
-    pat_it = iter(cycle(pat))
-    lv1 = [Node(dict(zip(islice(pat_it, tk), repeat(()))), l) for tk in r1]
-  else:
-    n_paths = int((last_number - start) / step) + 1
-    if n_paths < len(pat):  # also correct if always false; unused node optimization
-      small_range = True
-      # print("start idx", pat_start_idx, pat_stop_idx)
-      lv1 = base_layer_with_offset(start, step, base, l, n_paths)
-      separate_start_group = False
-      separate_stop_group = False
-
-      start_group = 0
-      stop_group = len(lv1) - 1
-    else:
-      lv1 = base_layer_with_offset(offset, step, base, l)
-
-  lv_prev = lv1
-
-  # extra start node
-  curr_start_node = None
-  curr_start_idx = - (step_order + 1)
-
-  if separate_start_group:
-    last_idx_start_group = pat_start_idx + r1[start_group] - (start_idx + 1)
-    # lv1_start_node = Node(dict(zip(pat[pat_start_idx:last_idx_start_group + 1], repeat(()))), l)
-    node_to_copy = lv1[start_group]
-    part_of_pat = [to_size(numberToBase(p, base), step_order)[-step_order] for p in pat[pat_start_idx:last_idx_start_group + 1]]
-
-    lv1_start_node = Node({p: node_to_copy.cd[p] for p in part_of_pat}, l)
-    curr_start_node = lv1_start_node
-
-  # extra stop node
-  curr_stop_node = None
-
-  if separate_stop_group:
-    first_idx_stop_group = pat_stop_idx - stop_idx
-    # lv1_stop_node = Node(dict(zip(pat[first_idx_stop_group:pat_stop_idx + 1], repeat(()))), l)
-
-    node_to_copy = lv1[stop_group]
-    part_of_pat = [to_size(numberToBase(p, base), step_order)[-step_order] for p in pat[first_idx_stop_group:pat_stop_idx + 1]]
-
-    lv1_stop_node = Node({p: node_to_copy.cd[p] for p in part_of_pat}, l)
-
-    curr_stop_node = lv1_stop_node
-
-
-  # intermediate layers
-
-  size_intermediate_layers.reverse()
-  next_start_group = (start_group + 1) %len(r1)  # correct both with or without the modulo (without modulo, we might go through one cycle more of the previous level nodes)
-
-  to_skip = next_start_group if separate_start_group else start_group
-
-  std_nodes_ = len(r1)
-  eq_stop_node = stop_group
-
-  for i, nns in enumerate(size_intermediate_layers):
-
-    lv_curr = []
-    lv_prev_it = iter(cycle(lv_prev))
-
-    skip_elements(lv_prev_it, to_skip)
-
-    stop_groups_to_skip = (eq_stop_node - last_number_split_[curr_start_idx]) % std_nodes_
     if separate_start_group:
-      nodes = [curr_start_node] + list(islice(lv_prev_it, base - start_split_[curr_start_idx] - 1))
-      curr_start_node = Node(dict(zip(range(start_split_[curr_start_idx], base), nodes)), l)
+        last_idx_start_group = pat_start_idx + r1[start_group] - (start_idx + 1)
+        # lv1_start_node = Node(dict(zip(pat[pat_start_idx:last_idx_start_group + 1], repeat(()))), l)
+        node_to_copy = lv1[start_group]
+        part_of_pat = [to_size(to_digits(p, base), step_order)[-step_order] for p in
+                       pat[pat_start_idx:last_idx_start_group + 1]]
 
-    if not separate_start_group and start_split_[curr_start_idx] > 0:
-      separate_start_group = True
-      nodes = islice(lv_prev_it, base - start_split_[curr_start_idx])
-      curr_start_node = Node(dict(zip(range(start_split_[curr_start_idx], base), nodes)), l)
+        lv1_start_node = Node({p: node_to_copy.cd[p] for p in part_of_pat}, l)
+        curr_start_node = lv1_start_node
 
-    next_eq_stop_node = None
-    first_node = next(lv_prev_it)
-    peek_node = first_node
-
-    for n in range(nns):
-      d = dict(zip(range(base), [peek_node] + list(islice(lv_prev_it, base - 1))))
-      if d[last_number_split_[curr_start_idx]] == lv_prev[eq_stop_node]:
-        next_eq_stop_node = n
-      lv_curr.append(Node(d, l))
-
-      peek_node = next(lv_prev_it)
-      if peek_node == first_node:
-        break
-
-    if next_eq_stop_node is None and not small_range:
-      # This should never occur
-      raise NotImplementedError("Unexpected condition: next_eq_stop_node should not be None.")
-
-    lv_prev_it_stop = iter(cycle(lv_prev))
-    skip_elements(lv_prev_it_stop, stop_groups_to_skip)
+    # extra stop node
+    curr_stop_node = None
 
     if separate_stop_group:
-      nodes = list(islice(lv_prev_it_stop, last_number_split_[curr_start_idx])) + [curr_stop_node]
-      curr_stop_node = Node(dict(zip(range(0, last_number_split_[curr_start_idx] + 1), nodes)), l)
+        first_idx_stop_group = pat_stop_idx - stop_idx
+        # lv1_stop_node = Node(dict(zip(pat[first_idx_stop_group:pat_stop_idx + 1], repeat(()))), l)
 
-    if not separate_stop_group and last_number_split[curr_start_idx] < base - 1:
-      separate_stop_group = True
-      nodes = islice(lv_prev_it_stop, last_number_split_[curr_start_idx] + 1)
-      curr_stop_node = Node(dict(zip(range(0, last_number_split_[curr_start_idx] + 1), nodes)), l)
+        node_to_copy = lv1[stop_group]
+        part_of_pat = [to_size(to_digits(p, base), step_order)[-step_order] for p in
+                       pat[first_idx_stop_group:pat_stop_idx + 1]]
 
-    lv_prev = lv_curr
+        lv1_stop_node = Node({p: node_to_copy.cd[p] for p in part_of_pat}, l)
 
-    curr_start_idx -= 1
-    to_skip = 0
-    std_nodes_ = std_nodes
-    eq_stop_node = next_eq_stop_node
+        curr_stop_node = lv1_stop_node
 
+    # intermediate layers
 
-  # top layer
+    size_intermediate_layers.reverse()
+    next_start_group = (start_group + 1) % len(
+        r1)  # correct both with or without the modulo (without modulo, we might go through one cycle more of the previous level nodes)
 
-  lv_prev_it = iter(cycle(lv_prev))
-  skip_elements(lv_prev_it, to_skip)
+    to_skip = next_start_group if separate_start_group else start_group
 
-  # Initialize first and last nodes
-  first_node = [curr_start_node] if separate_start_group else []
-  last_node = [curr_stop_node] if separate_stop_group else []
+    std_nodes_ = len(r1)
+    eq_stop_node = stop_group
 
-  # Compute slice size of middle nodes
-  slice_size = (last_number_split_[0] - start_split_[0] + 1) - separate_start_group - separate_stop_group
+    for i, nns in enumerate(size_intermediate_layers):
 
-  nodes = first_node + list(islice(lv_prev_it, slice_size)) + last_node
-  edge_labels = range(start_split_[0], last_number_split_[0] + 1)
+        lv_curr = []
+        lv_prev_it = iter(cycle(lv_prev))
 
-  top_node = Node(dict(zip(edge_labels, nodes)), l)
+        skip_elements(lv_prev_it, to_skip)
 
-  # lvs.append([top_node])
-  to_add.reverse()
-  for e in to_add:
-    top_node = Node({e: top_node}, l)
+        stop_groups_to_skip = (eq_stop_node - last_number_split_[curr_start_idx]) % std_nodes_
+        if separate_start_group:
+            nodes = [curr_start_node] + list(islice(lv_prev_it, base - start_split_[curr_start_idx] - 1))
+            curr_start_node = Node(dict(zip(range(start_split_[curr_start_idx], base), nodes)), l)
 
-  return top_node, l
+        if not separate_start_group and start_split_[curr_start_idx] > 0:
+            separate_start_group = True
+            nodes = islice(lv_prev_it, base - start_split_[curr_start_idx])
+            curr_start_node = Node(dict(zip(range(start_split_[curr_start_idx], base), nodes)), l)
+
+        next_eq_stop_node = None
+        first_node = next(lv_prev_it)
+        peek_node = first_node
+
+        for n in range(nns):
+            d = dict(zip(range(base), [peek_node] + list(islice(lv_prev_it, base - 1))))
+            if d[last_number_split_[curr_start_idx]] == lv_prev[eq_stop_node]:
+                next_eq_stop_node = n
+            lv_curr.append(Node(d, l))
+
+            peek_node = next(lv_prev_it)
+            if peek_node == first_node:
+                break
+
+        if next_eq_stop_node is None and not small_range:
+            # This should never occur
+            raise NotImplementedError("Unexpected condition: next_eq_stop_node should not be None.")
+
+        lv_prev_it_stop = iter(cycle(lv_prev))
+        skip_elements(lv_prev_it_stop, stop_groups_to_skip)
+
+        if separate_stop_group:
+            nodes = list(islice(lv_prev_it_stop, last_number_split_[curr_start_idx])) + [curr_stop_node]
+            curr_stop_node = Node(dict(zip(range(0, last_number_split_[curr_start_idx] + 1), nodes)), l)
+
+        if not separate_stop_group and last_number_split[curr_start_idx] < base - 1:
+            separate_stop_group = True
+            nodes = islice(lv_prev_it_stop, last_number_split_[curr_start_idx] + 1)
+            curr_stop_node = Node(dict(zip(range(0, last_number_split_[curr_start_idx] + 1), nodes)), l)
+
+        lv_prev = lv_curr
+
+        curr_start_idx -= 1
+        to_skip = 0
+        std_nodes_ = std_nodes
+        eq_stop_node = next_eq_stop_node
+
+    # top layer
+
+    lv_prev_it = iter(cycle(lv_prev))
+    skip_elements(lv_prev_it, to_skip)
+
+    # Initialize first and last nodes
+    first_node = [curr_start_node] if separate_start_group else []
+    last_node = [curr_stop_node] if separate_stop_group else []
+
+    # Compute slice size of middle nodes
+    slice_size = (last_number_split_[0] - start_split_[0] + 1) - separate_start_group - separate_stop_group
+
+    nodes = first_node + list(islice(lv_prev_it, slice_size)) + last_node
+    edge_labels = range(start_split_[0], last_number_split_[0] + 1)
+
+    top_node = Node(dict(zip(edge_labels, nodes)), l)
+
+    # lvs.append([top_node])
+    to_add.reverse()
+    for e in to_add:
+        top_node = Node({e: top_node}, l)
+
+    return top_node, l
 
 
 def print_graph(l):
-  print("digraph G { \n ranksep=3")
-  for n in l: n.graphviz()
-  print("}")
+    print("digraph G { \n ranksep=3")
+    for n in l: n.graphviz()
+    print("}")
+
 
 def abstract_graph(l, draw_vs=False):
-  print("strict digraph G { \n ranksep=3")
-  for n in l: n.graphviz_abstract(draw_vs)
-  print("}")
+    print("strict digraph G { \n ranksep=3")
+    for n in l: n.graphviz_abstract(draw_vs)
+    print("}")
+
 
 def main(start, stop, step, base):
-  rn, l = crange(start, stop, step, base)
-  print("BASE", base)
-  # print(repr(rn))
+    rn, l = crange(start, stop, step, base)
+    print("BASE", base)
+    # print(repr(rn))
 
-  # print(sorted(map(tuple, rn.paths())))
-  r = [i for i in range(start, stop, step)]
-  print("real  ", [to_number(i, base) for i in (sorted(map(tuple, rn.paths())))])
-  print("wanted", r)
-  # assert(r == [to_number_special(i, order(step, base), base) for i in (sorted(map(tuple, rn.paths())))])
-  print(len(r))
-  # print(max(map(to_number, rn.paths())))
+    # print(sorted(map(tuple, rn.paths())))
+    r = [i for i in range(start, stop, step)]
+    print("real  ", [to_number(i, base) for i in (sorted(map(tuple, rn.paths())))])
+    print("wanted", r)
+    # assert(r == [to_number_special(i, order(step, base), base) for i in (sorted(map(tuple, rn.paths())))])
+    print(len(r))
+    # print(max(map(to_number, rn.paths())))
 
-  print("#wanted: ", len(range(start, stop, step)), "#real: ", sum(1 for _ in rn.paths()))
-  print("check: ", len(range(start, stop, step)), "#real: ", sum(1 for _ in rn.paths()))
+    print("#wanted: ", len(range(start, stop, step)), "#real: ", sum(1 for _ in rn.paths()))
+    print("check: ", len(range(start, stop, step)), "#real: ", sum(1 for _ in rn.paths()))
 
-  ns = (map(lambda x: to_number(list(x), base), rn.paths()))
-  m = start % step
-  for n in ns:
-    if not n % step == m:
-      print("INCORRECT NUMBERS from", n)
-      break
-  print()
-  print_graph(l)
+    ns = (map(lambda x: to_number(list(x), base), rn.paths()))
+    m = start % step
+    for n in ns:
+        if not n % step == m:
+            print("INCORRECT NUMBERS from", n)
+            break
+    print()
+    print_graph(l)
 
-  print()
-  print()
-  print()
+    print()
+    print()
+    print()
 
-  # l_ = []
-  # base_layer(125, 10, l_)
-  # print_graph(l_)
+    # l_ = []
+    # base_layer(125, 10, l_)
+    # print_graph(l_)
+
 
 def large_main(start, stop, step, base):
-  from contextlib import redirect_stdout
-  t0 = monotonic()
-  rn, l = crange(start, stop, step, base)
-  s: set[Node] = set()
-  rn.used(s)
-  print("generating took:", monotonic() - t0)
-  print("generated nodes:", len(l))
-  print("useful nodes:", len(s))
-  with open(f"r_{start}_{stop}_{step}_{base}.graphviz", 'w') as f:
-    with redirect_stdout(f):
-      abstract_graph(s, True)
+    from contextlib import redirect_stdout
+    t0 = monotonic()
+    rn, l = crange(start, stop, step, base)
+    s: set[Node] = set()
+    rn.used(s)
+    print("generating took:", monotonic() - t0)
+    print("generated nodes:", len(l))
+    print("useful nodes:", len(s))
+    with open(f"r_{start}_{stop}_{step}_{base}.graphviz", 'w') as f:
+        with redirect_stdout(f):
+            abstract_graph(s, False)
 
 
 if __name__ == '__main__':
-  # main(0, 10000, 113, 10)
-  # large_main(0, 6**64, 6**32, 12)
-  large_main(0, 1000, 113, 10)
+    # main(0, 10000, 113, 10)
+    large_main(0, 6**64, 6**32, 12)
+    # large_main(0, 1000, 113, 10)
