@@ -1,4 +1,4 @@
-from math import lcm
+from math import lcm, gcd
 from time import monotonic
 from collections import deque
 from itertools import cycle, islice
@@ -83,16 +83,16 @@ def crange_core(step: int, base: int, start_digits: list[int], stop_digits: list
         else:
             return base_layer_with_offset(offset, step, base, l, None, grouped=True)[0]
 
-    pat, r1 = pattern_and_repetition(step, offset, base, extended=True)
+    if not small_range or step < base:
+        # print("I'm constructing")
+        pat, r1 = pattern_and_repetition(step, offset, base, extended=True)
 
-    pat_start_idx, start_group, start_idx = find_group_and_index(pat, r1, to_number(start_digits[-step_order:], base))
-    separate_start_group: bool = (start_idx != 0)
-    assert pat_start_idx <= sum(r1)
+        pat_start_idx, start_group, start_idx = find_group_and_index(pat, r1, to_number(start_digits[-step_order:], base))
+        separate_start_group: bool = (start_idx != 0)
+        assert pat_start_idx <= sum(r1)
 
-    pat_stop_idx, stop_group, stop_idx = find_group_and_index(pat, r1, to_number(stop_digits[-step_order:], base))
-    separate_stop_group: bool = (stop_idx != (r1[stop_group] - 1))
-
-    assert (stop - start) % step == 0
+        pat_stop_idx, stop_group, stop_idx = find_group_and_index(pat, r1, to_number(stop_digits[-step_order:], base))
+        separate_stop_group: bool = (stop_idx != (r1[stop_group] - 1))
 
     # make leaf layer
     if step < base:
@@ -144,11 +144,11 @@ def crange_core(step: int, base: int, start_digits: list[int], stop_digits: list
     # calculate the number of nodes in each layer, which is not the lowest or highest layer
     size_intermediate_layers = number_of_nodes_per_layer(start_digits, stop_digits, step, base)
     # correct both with or without the modulo (without modulo, we might go through one cycle more of the previous level nodes)
-    next_start_group = (start_group + 1) % len(r1)
+    std_nodes = int(step / gcd(base ** step_order, step))
+    next_start_group = (start_group + 1) % std_nodes
 
     to_skip = next_start_group if separate_start_group else start_group
 
-    std_nodes = len(r1)
     eq_stop_node: int = stop_group
 
     for i, nns in enumerate(reversed(size_intermediate_layers)):
@@ -282,11 +282,12 @@ def large_main(start, stop, step, base):
     print("useful nodes:", len(s))
     with open(f"r_{start}_{stop}_{step}_{base}.graphviz", 'w') as f:
         with redirect_stdout(f):
-            abstract_graph(s, False)
+            print_graph(s)
 
 
 if __name__ == '__main__':
     # main(0, 10000, 113, 10)
+    # large_main(0, 6**64, 6**32, 12)
     large_main(6**8, 6**8 + 2*6**32 + 1, 6**32, 10)
     # large_main(0, 1000, 113, 10)
     # main(679668, 732633, 75429, 765)

@@ -92,7 +92,7 @@ def pattern_ext(n, offset, base):
     return pattern(n, offset, base ** order)
 
 
-def repetition_offset(n, offset, base):
+def repetition_offset(n, offset, base, max_steps=None):
     if n == 0:
         return [0]  # the answer here should be infinity! Since 0 is in no other case the answer, we use 0
 
@@ -103,12 +103,16 @@ def repetition_offset(n, offset, base):
     T = base // gcd(base, n)
     res = []
     i = 0
+    total = 0
     while i < T:
         v = (offset + i * n) // base
         # Find max j with (offset + j*n) < (v+1)*base.
         j = ((v + 1) * base - offset - 1) // n
         j = min(j, T - 1)
+        total += j - i + 1
         res.append(j - i + 1)
+        if max_steps and total > max_steps:
+            break
         i = j + 1
     return res
     # return [sum(1 for _ in r) for k, r in groupby(map(lambda x: x // base, range(offset, offset + lcm(base, n), n)))]

@@ -28,8 +28,9 @@ def next_step(start_split, step_split, prev_nodes, base, l, n_steps=None):
 
 
 def last_layer(start_split, step_split, prev_nodes, base, l, n_steps=None):
+    # todo merge generalized pattern and repetition
     pat = pattern(to_number(step_split, base), to_number(start_split, base), base ** len(step_split), n_steps, base**(len(step_split) - 1))
-    r = repetition_offset(to_number(step_split, base), to_number(start_split, base), base ** len(step_split))
+    r = repetition_offset(to_number(step_split, base), to_number(start_split, base), base ** len(step_split), n_steps)
     if n_steps:
         assert len(pat) == n_steps
         num_groups, total = deque(takewhile(lambda x: x[1] <= n_steps, enumerate(accumulate(r))), maxlen=1).pop()
