@@ -1,3 +1,4 @@
+from math import lcm
 from time import monotonic
 from collections import deque
 from itertools import cycle, islice
@@ -5,7 +6,7 @@ from itertools import cycle, islice
 from src.base_calc import to_digits, to_number, to_size
 from src.leaf_extension import make_leaf_nodes, next_step, last_layer, last_layer_grouped
 from src.node import Node
-from src.pattern import pattern_and_repetition
+from src.pattern import pattern_and_repetition, pattern
 from src.range_utility import (find_last_number_of_range, strip_equal_start, number_of_nodes_per_layer,
                                find_group_and_index, add_root)
 
@@ -68,6 +69,20 @@ def crange_core(step: int, base: int, start_digits: list[int], stop_digits: list
     assert (stop - start) % step == 0
     step_order = len(to_digits(step, base))
     offset = start % step
+    n_paths = ((stop - start) // step) + 1
+    small_range = n_paths < (lcm(base**len(to_digits(step, base)), step)/step)
+    if len(stop_digits) == step_order:
+        # bottom layer (leaf nodes)
+        # in the case there will only be one layer (only leaf nodes)
+        # e.g. in base range(0, 9, 3) range(0, 45, 10), range(3500, 9000, 1500)
+        if step < base:
+            p = pattern(step, to_number(start_digits[-step_order:], base), base, n_paths)
+            return Node.from_values(p, l)
+        if small_range:
+            return base_layer_with_offset(start, step, base, l, n_paths, grouped=True)[0]
+        else:
+            return base_layer_with_offset(offset, step, base, l, None, grouped=True)[0]
+
     pat, r1 = pattern_and_repetition(step, offset, base, extended=True)
 
     pat_start_idx, start_group, start_idx = find_group_and_index(pat, r1, to_number(start_digits[-step_order:], base))
@@ -78,20 +93,6 @@ def crange_core(step: int, base: int, start_digits: list[int], stop_digits: list
     separate_stop_group: bool = (stop_idx != (r1[stop_group] - 1))
 
     assert (stop - start) % step == 0
-    n_paths = ((stop - start) // step) + 1
-    small_range = n_paths < len(pat)
-
-    # bottom layer (leaf nodes)
-    # in the case there will only be one layer (only leaf nodes)
-    # e.g. in base range(0, 9, 3) range(0, 45, 10), range(3500, 9000, 1500)
-    if len(stop_digits) == step_order:
-        if step < base:
-            curr_node = Node.from_values(pat[pat_start_idx:pat_stop_idx + 1], l)
-        elif small_range:
-            curr_node = base_layer_with_offset(start, step, base, l, n_paths, grouped=True)[0]
-        else:
-            curr_node = base_layer_with_offset(offset, step, base, l, None, grouped=True)[0]
-        return curr_node
 
     # make leaf layer
     if step < base:
@@ -286,7 +287,7 @@ def large_main(start, stop, step, base):
 
 if __name__ == '__main__':
     # main(0, 10000, 113, 10)
-    # large_main(0, 6**64, 6**32, 12)
+    large_main(6**8, 6**8 + 2*6**32 + 1, 6**32, 10)
     # large_main(0, 1000, 113, 10)
     # main(679668, 732633, 75429, 765)
-    main(923, 931, 93, 10)
+    # main(923, 931, 93, 10)

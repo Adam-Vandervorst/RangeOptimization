@@ -33,6 +33,8 @@ def pattern_and_repetition(n, offset, base, extended=False):
     assert n < base
     assert offset < n
     assert offset < base
+    if lcm(base, n)/n > 10**10:
+        raise RuntimeError(f"pattern more than 10B elements: {lcm(base, n)/n} (n={n}, offset={offset}, base={base})")
 
     # instead of using lcm, one can use as stop criterion that the first generated number is reached again
     # following code is also correct and tested
