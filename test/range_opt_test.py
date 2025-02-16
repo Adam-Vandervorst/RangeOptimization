@@ -1,4 +1,5 @@
 import unittest
+from multiprocessing import Pool
 from random import randint
 
 from src.base_calc import to_number
@@ -6,8 +7,8 @@ from src.range_optimization_nonrestricted import crange
 
 
 def compare_range(start, stop, step, base) -> bool:
-    print(start, stop, step, base)
-    rn, l = crange(start, stop, step, base)
+    # print(start, stop, step, base)
+    rn = crange(start, stop, step, base)
 
     wanted_range = list(range(start, stop, step))
     opt_range = [to_number(i, base) for i in (sorted(map(tuple, rn.paths())))]
@@ -17,7 +18,10 @@ def compare_range(start, stop, step, base) -> bool:
 def compare_ranges(args) -> list[tuple]:
     return [a for a in args if not compare_range(*a)]
 
-
+def compare_ranges_par(args) -> list[tuple]:
+    p = Pool(32)
+    res = p.starmap(compare_range, args)
+    return [a for a, r in zip(args, res) if not r]
 
 class HandpickedTests(unittest.TestCase):
     def test_only_one_path(self):
@@ -113,36 +117,39 @@ class HandpickedTests(unittest.TestCase):
 
 
 class GeneratedTestCases(unittest.TestCase):
+    DO_PARALLEL = True
+    FAST_MAX = 1000
+    SLOW_MAX = 500
     def param_generator(self, max_step = 99, base = None):
         if not base:
-            base = randint(2, 200)
+            base = randint(2, 2000)
 
         step = randint(1, max_step)
-        start = randint(0, 100000)
-        stop = randint(start, 300000)
+        start = randint(0, 1000000)
+        stop = randint(start, 3000000)
 
         return start, stop, step, base
 
 
     def test_base_10(self):
-        tests = [self.param_generator(99, 10) for _ in range(100)]
-        self.assertListEqual([], compare_ranges(tests))
+        tests = [self.param_generator(99, 10) for _ in range(self.FAST_MAX)]
+        self.assertListEqual([], compare_ranges_par(tests) if self.DO_PARALLEL else compare_ranges(tests))
 
     def test_base_16(self):
-        tests = [self.param_generator(99, 16) for _ in range(100)]
-        self.assertListEqual([], compare_ranges(tests))
+        tests = [self.param_generator(99, 16) for _ in range(self.FAST_MAX)]
+        self.assertListEqual([], compare_ranges_par(tests) if self.DO_PARALLEL else compare_ranges(tests))
 
     def test_random_bases(self):
-        tests = [self.param_generator() for _ in range(100)]
-        self.assertListEqual([], compare_ranges(tests))
+        tests = [self.param_generator() for _ in range(self.FAST_MAX)]
+        self.assertListEqual([], compare_ranges_par(tests) if self.DO_PARALLEL else compare_ranges(tests))
 
     def test_big_step_base_10(self):
-        tests = [self.param_generator(99999, 10) for _ in range(50)]
-        self.assertListEqual([], compare_ranges(tests))
+        tests = [self.param_generator(99999, 10) for _ in range(self.SLOW_MAX)]
+        self.assertListEqual([], compare_ranges_par(tests) if self.DO_PARALLEL else compare_ranges(tests))
 
     def test_big_step_any_base(self):
-        tests = [self.param_generator(99999) for _ in range(50)]
-        self.assertListEqual([], compare_ranges(tests))
+        tests = [self.param_generator(99999) for _ in range(self.SLOW_MAX)]
+        self.assertListEqual([], compare_ranges_par(tests) if self.DO_PARALLEL else compare_ranges(tests))
 
 
 if __name__ == '__main__':

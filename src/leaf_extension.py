@@ -13,7 +13,7 @@ def make_leaf_nodes(start, step, base, l, n_steps=None):
 
     pat = pattern(step, start, base, n_steps)
 
-    return [Node({p: ()}, l) for p in pat]
+    return [Node.from_values([p], l) for p in pat]
 
 
 def next_step(start_split, step_split, prev_nodes, base, l, n_steps=None):
@@ -24,7 +24,7 @@ def next_step(start_split, step_split, prev_nodes, base, l, n_steps=None):
     else:
         pat = pattern(to_number(step_split, base), to_number(start_split, base), base ** len(step_split), n_steps, cutoff=base**(len(step_split) - 1))
     lv_prev_it = iter(cycle(prev_nodes))
-    return [Node({p: next(lv_prev_it)}, l) for p in pat]
+    return [Node.from_children([p], [next(lv_prev_it)], l) for p in pat]
 
 
 def last_layer(start_split, step_split, prev_nodes, base, l, n_steps=None):
@@ -41,12 +41,11 @@ def last_layer(start_split, step_split, prev_nodes, base, l, n_steps=None):
 
     pat_it = iter(cycle(pat))
     lv_prev_it = iter(cycle(prev_nodes))
-    return [Node(dict(zip(islice(pat_it, tk), islice(lv_prev_it, tk))), l) for tk in r]
+    return [Node.from_children(islice(pat_it, tk), islice(lv_prev_it, tk), l) for tk in r]
 
 
 def last_layer_grouped(start_split, step_split, prev_nodes, base, l, n_steps=None):
     pat = pattern(to_number(step_split, base), to_number(start_split, base), base ** len(step_split), n_steps, cutoff=base**(len(step_split) - 1))
 
     lv_prev_it = iter(cycle(prev_nodes))
-
-    return [Node(dict(zip(pat, lv_prev_it)), l)]
+    return [Node.from_children(pat, islice(lv_prev_it, len(pat)), l)]

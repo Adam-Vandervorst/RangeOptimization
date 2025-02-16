@@ -1,6 +1,7 @@
 from math import gcd
 
 from src.base_calc import to_digits
+from src.node import Node
 
 
 def find_last_number_of_range(start, stop, step):
@@ -65,6 +66,12 @@ def number_of_nodes_per_layer(start: list, last_n: list, step: int, base):
 
     return size_intermediate_layers
 
+
+def add_root(rn: 'Node', to_add: list[int], l) -> Node:
+    curr_node = rn
+    for e in reversed(to_add):
+        curr_node = Node.from_children([e], [curr_node], l)
+    return curr_node
 # def chop_repetition(ro, si, ei):
 #   ss = 0
 #   sgi = 0

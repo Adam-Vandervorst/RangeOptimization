@@ -1,4 +1,19 @@
 class Node:
+    @classmethod
+    def from_values(cls, vs, l):
+        return cls(dict.fromkeys(vs, ()), l)
+
+    @classmethod
+    def restrict_node(cls, n: 'Node', ks: list[int], l):
+        return cls({k: n.cd[k] for k in ks}, l)
+
+    @classmethod
+    def from_children(cls, ks, cs, l):
+        ks = list(ks)
+        cs = list(cs)
+        assert len(ks) == len(cs)
+        return cls(dict(zip(ks, cs)), l)
+
     def __init__(self, cd, l):
         self.idc = len(l)  # node id
         self.cd = cd  # dict of outgoing edges
