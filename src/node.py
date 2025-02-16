@@ -1,17 +1,22 @@
 class Node:
     @classmethod
     def from_values(cls, vs, l):
-        return cls(dict.fromkeys(vs, ()), l)
+        d = dict.fromkeys(vs, ())
+        assert len(d) > 0
+        return cls(d, l)
 
     @classmethod
     def restrict_node(cls, n: 'Node', ks: list[int], l):
-        return cls({k: n.cd[k] for k in ks}, l)
+        d = {k: n.cd[k] for k in ks}
+        assert len(d) > 0
+        return cls(d, l)
 
     @classmethod
     def from_children(cls, ks, cs, l):
         ks = list(ks)
         cs = list(cs)
         assert len(ks) == len(cs)
+        assert len(ks) > 0
         return cls(dict(zip(ks, cs)), l)
 
     def __init__(self, cd, l):
