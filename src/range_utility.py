@@ -1,17 +1,17 @@
 from math import gcd
 
-from src.base_calc import to_digits
+from src.base_calc import to_digits, digit
 from src.node import Node
 
 
-def find_last_number_of_range(start, stop, step):
+def find_last_number_of_range(start: int, stop: int, step: int) -> int:
     rem = stop % step
     offset = start % step
     return stop + offset - rem - (step if offset >= rem else 0)
 
 
-def find_group_and_index(l, group_division, n):
-    idx = l.index(n)
+def find_group_and_index(pat: list[int], group_division: list[int], n: int) -> tuple[int, int, int]:
+    idx = pat.index(n)
 
     p = 0
     for g_number, g_size in enumerate(group_division):
@@ -21,18 +21,8 @@ def find_group_and_index(l, group_division, n):
             return idx, g_number, g_place
 
 
-def find_group(l, group_division, n):
-    idx = l.index(n)
-
-    p = 0
-    for g_number, g_size in enumerate(group_division):
-        g_place = idx - p
-        p += g_size
-        if p > idx:
-            return g_number, g_place
-
-
-def strip_equal_start(l1: list, l2: list) -> tuple[list, list, list]:
+def strip_equal_start(l1: list[digit], l2: list[digit]) -> tuple[list[digit], list[digit], list[digit]]:
+    assert len(l1) > 0 and len(l2) > 0
     start = []
 
     for i in range(len(l1)):
@@ -44,7 +34,7 @@ def strip_equal_start(l1: list, l2: list) -> tuple[list, list, list]:
     return l1[i:], l2[i:], start
 
 
-def number_of_nodes_per_layer(start: list, last_n: list, step: int, base):
+def number_of_nodes_per_layer(start: list[digit], last_n: list[digit], step: int, base: int) -> list[int]:
     assert (len(start) == len(last_n))
 
     upper_layer_edges = last_n[0] - start[0] + 1  # number of edges starting from top node
@@ -67,42 +57,9 @@ def number_of_nodes_per_layer(start: list, last_n: list, step: int, base):
     return size_intermediate_layers
 
 
-def add_root(rn: 'Node', to_add: list[int], l) -> Node:
+def add_root(rn: 'Node', to_add: list[digit], alloc: 'list[Node]') -> Node:
     curr_node = rn
     for e in reversed(to_add):
-        curr_node = Node.from_children([e], [curr_node], l)
+        curr_node = Node.from_children([e], [curr_node], alloc)
     return curr_node
-# def chop_repetition(ro, si, ei):
-#   ss = 0
-#   sgi = 0
-#   while ss < si:
-#     ss += ro[sgi]
-#     sgi += 1
-#
-#   es = sum(ro) - 1
-#   egi = len(ro)
-#   while es >= ei:
-#     es -= ro[sgi]
-#     egi -= 1
-#
-#   return [ro[sgi] - (ss - si)] + ro[sgi:egi] + [ro[egi] - (ei - es)]
-#
-#
-# if __name__ == '__main__':
-#     print(chop_repetition([3, 4, 3], 1, 7))
-#     print(chop_repetition([3, 4, 3], 8, 7))
 
-
-# nr dropwhile(takewhile(ro, _ < si), _ < len(ro) - ei)
-# nr[0] -= si - sfound
-# nr[-1] -= ei - efound
-
-# def how_many_cicles(boxes, arrows, box_nr, arrow_nr):
-#   for i in range(100):
-#     if (i*arrows + arrow_nr)%boxes == box_nr:
-#       return i
-#
-# assert(how_many_cicles(3, 4, 1, 1) == 0)
-# assert(how_many_cicles(3, 4, 0, 1) == 2)
-# assert(how_many_cicles(3, 10, 2, 9) == 2)
-# assert(how_many_cicles(3, 10, 2, 4) == 1)

@@ -1,7 +1,7 @@
 from itertools import groupby, cycle, islice, takewhile
 from math import lcm, gcd
 
-from src.base_calc import to_digits
+from src.base_calc import to_digits, digit
 
 
 def minimal_seq(xs: list[int]) -> list[int]:
@@ -22,13 +22,12 @@ def minimal_seq(xs: list[int]) -> list[int]:
     return xs[:p]
 
 
-def pattern_and_repetition(n, offset, base, extended=False):
+def pattern_and_repetition(n: int, offset: int, base: int, extended=False) -> tuple[list[digit], list[int]]:
     if extended:
         order = len(to_digits(n, base))
         base = base ** order
-    if n == 0:
-        return [offset]
 
+    assert n > 0
     assert offset >= 0
     assert n < base
     assert offset < n
@@ -38,7 +37,7 @@ def pattern_and_repetition(n, offset, base, extended=False):
 
     # instead of using lcm, one can use as stop criterion that the first generated number is reached again
     # following code is also correct and tested
-    res = [offset]
+    pat = [offset]
     rep = []
     c = 1
     k = offset + n
@@ -49,16 +48,16 @@ def pattern_and_repetition(n, offset, base, extended=False):
             c = 0
         if k == offset:
             break
-        res.append(k)
+        pat.append(k)
         k += n
         c += 1
     # return [(k + offset) % base for k in range(0, lcm(base, n), n)]
-    assert len(res) == lcm(base, n) / n
-    # assert len(set(res)) == len(res)  # TODO remove when not debugging
-    return res, rep
+    assert len(pat) == lcm(base, n) / n
+    # assert len(set(pat)) == len(pat)
+    return pat, rep
 
 
-def pattern(n, offset, base, max_steps=None, cutoff=1):
+def pattern(n: int, offset: int, base: int, max_steps=None, cutoff=1) -> list[digit]:
     if n == 0:
         return [offset]
 
@@ -81,18 +80,7 @@ def pattern(n, offset, base, max_steps=None, cutoff=1):
     return res
 
 
-def pattern_ext(n, offset, base):
-    if n == 0:
-        return [offset]
-
-    assert offset >= 0
-    # assert offset < n     # if offset >= n, we can get a pattern (e.g. pattern_ext(3, 3, 10) = [3, 6, 9, 2, 5, 8, 1, 4, 7, 0]) such that the first and last element of the pattern belong to the same group
-
-    order = len(to_digits(n, base))
-    return pattern(n, offset, base ** order)
-
-
-def repetition_offset(n, offset, base, max_steps=None):
+def repetition_offset(n: int, offset: int, base: int, max_steps=None) -> list[int]:
     if n == 0:
         return [0]  # the answer here should be infinity! Since 0 is in no other case the answer, we use 0
 
@@ -116,25 +104,3 @@ def repetition_offset(n, offset, base, max_steps=None):
         i = j + 1
     return res
     # return [sum(1 for _ in r) for k, r in groupby(map(lambda x: x // base, range(offset, offset + lcm(base, n), n)))]
-
-
-def repetition_ext(n, offset, base):
-    order = len(to_digits(n, base))
-    return repetition_offset(n, offset, base ** order)
-
-
-def one_up(rep3, base, num_up=1):
-    it = iter(cycle(rep3))
-
-    if rep3 == [0]:
-        return pattern_ext(num_up, 0, base)
-
-    seq = []
-    i = 0
-    for n in islice(it, base ** 2):
-        for n_ in range(n):
-            seq.append(i)
-            i = (i + num_up) % base
-        i = (i + 1) % base
-
-    return seq

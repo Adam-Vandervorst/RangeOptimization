@@ -2,21 +2,21 @@ from collections import deque
 from itertools import cycle, islice, takewhile, accumulate
 from math import lcm
 
-from src.base_calc import to_number, to_size, to_digits
+from src.base_calc import to_number, to_size, to_digits, digit
 from src.node import Node
 from src.pattern import pattern, repetition_offset, pattern_and_repetition
 
 
-def make_leaf_nodes(start, step, base, l, n_steps=None):
+def make_leaf_nodes(start: int, step: int, base: int, alloc: list[Node], n_steps=None) -> list[Node]:
     assert start < base
     assert step < base
 
     pat = pattern(step, start, base, n_steps)
 
-    return [Node.from_values([p], l) for p in pat]
+    return [Node.from_values([p], alloc) for p in pat]
 
 
-def next_step(start_split, step_split, prev_nodes, base, l, n_steps=None):
+def next_step(start_split: list[digit], step_split: list[digit], prev_nodes: list[Node], base: int, alloc: list[Node], n_steps=None) -> list[Node]:
     prev_step = to_number(step_split[1:], base)
 
     if prev_step == 0:
@@ -24,10 +24,10 @@ def next_step(start_split, step_split, prev_nodes, base, l, n_steps=None):
     else:
         pat = pattern(to_number(step_split, base), to_number(start_split, base), base ** len(step_split), n_steps, cutoff=base**(len(step_split) - 1))
     lv_prev_it = iter(cycle(prev_nodes))
-    return [Node.from_children([p], [next(lv_prev_it)], l) for p in pat]
+    return [Node.from_children([p], [next(lv_prev_it)], alloc) for p in pat]
 
 
-def last_layer(start_split, step_split, prev_nodes, base, l, n_steps=None):
+def last_layer(start_split: list[digit], step_split: list[digit], prev_nodes: list[Node], base: int, alloc: list[Node], n_steps=None) -> list[Node]:
     # todo merge generalized pattern and repetition
     pat = pattern(to_number(step_split, base), to_number(start_split, base), base ** len(step_split), n_steps, base**(len(step_split) - 1))
     r = repetition_offset(to_number(step_split, base), to_number(start_split, base), base ** len(step_split), n_steps)
@@ -42,11 +42,11 @@ def last_layer(start_split, step_split, prev_nodes, base, l, n_steps=None):
 
     pat_it = iter(cycle(pat))
     lv_prev_it = iter(cycle(prev_nodes))
-    return [Node.from_children(islice(pat_it, tk), islice(lv_prev_it, tk), l) for tk in r]
+    return [Node.from_children(islice(pat_it, tk), islice(lv_prev_it, tk), alloc) for tk in r]
 
 
-def last_layer_grouped(start_split, step_split, prev_nodes, base, l, n_steps=None):
+def last_layer_grouped(start_split: list[digit], step_split: list[digit], prev_nodes: list[Node], base: int, alloc: list[Node], n_steps=None) -> list[Node]:
     pat = pattern(to_number(step_split, base), to_number(start_split, base), base ** len(step_split), n_steps, cutoff=base**(len(step_split) - 1))
 
     lv_prev_it = iter(cycle(prev_nodes))
-    return [Node.from_children(pat, islice(lv_prev_it, len(pat)), l)]
+    return [Node.from_children(pat, islice(lv_prev_it, len(pat)), alloc)]

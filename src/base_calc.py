@@ -1,4 +1,6 @@
-def to_digits(n: int, b: int) -> list[int]:
+type digit = int
+
+def to_digits(n: int, b: int) -> list[digit]:
     # numberToBase(1324, 10) = [1, 3, 2, 4]
     assert b > 0
     if n == 0:
@@ -31,15 +33,15 @@ def show_base(k: int):
     return {16: lambda x: hex[x], 64: lambda x: hexagram[x], 256: lambda x: emoji[x]}.get(k, str)
 
 
-def to_number(p: list[int], b) -> int:
+def to_number(p: list[digit], b) -> int:
     return sum((b ** i) * e for i, e in enumerate(reversed(p)))
 
 
-def to_number_special(p: list[int], o: int, base) -> int:
+def to_number_special(p: list[digit], o: int, base) -> int:
     # BASE = 10 => to_number_special([3, 2, 15], 1) = 3215
     # BASE = 10 => to_number_special([3, 2, 15], 2) = 32015
     return p[-1] + sum((base ** (i + o + 1)) * e for i, e in enumerate(reversed(p[:-1])))
 
 
-def to_size(l: list[int], s: int) -> list[int]:
+def to_size(l: list[digit], s: int) -> list[digit]:
     return [0] * (s - len(l)) + l

@@ -1,57 +1,60 @@
+from typing import Iterable
+
+
 class Node:
     @classmethod
-    def from_values(cls, vs, l):
-        d = dict.fromkeys(vs, ())
+    def from_values(cls, ks: 'Iterable[int]', alloc: 'list[Node]'):
+        d = dict.fromkeys(ks, None)
         assert len(d) > 0
-        return cls(d, l)
+        return cls(d, alloc)
 
     @classmethod
-    def restrict_node(cls, n: 'Node', ks: list[int], l):
+    def restrict_node(cls, n: 'Node', ks: 'Iterable[int]', alloc: 'list[Node]'):
         d = {k: n.cd[k] for k in ks}
         assert len(d) > 0
-        return cls(d, l)
+        return cls(d, alloc)
 
     @classmethod
-    def from_children(cls, ks, cs, l):
+    def from_children(cls, ks: 'Iterable[int]', cs: 'Iterable[Node]', alloc: 'list[Node]'):
         ks = list(ks)
         cs = list(cs)
         assert len(ks) == len(cs)
         assert len(ks) > 0
-        return cls(dict(zip(ks, cs)), l)
+        return cls(dict(zip(ks, cs)), alloc)
 
-    def __init__(self, cd, l):
-        self.idc = len(l)  # node id
+    def __init__(self, cd: 'dict[int, Node | None]', alloc: 'list[Node]'):
+        self.idc = len(alloc)  # node id
         self.cd = cd  # dict of outgoing edges
-        l.append(self)
+        alloc.append(self)
 
-    def used(self, s: set):
+    def used(self, seen: 'set[Node]'):
         for k, v in self.cd.items():
-            if isinstance(v, Node):
-                if v not in s:
-                    v.used(s)
-        s.add(self)
+            if v is not None and v not in seen:
+                v.used(seen)
+        seen.add(self)
 
     def paths(self):
         for k, v in self.cd.items():
-            if isinstance(v, Node):
+            if v is None:
+                yield [k]
+            else:
                 for p in v.paths():
                     yield [k] + p
-            else:
-                yield [k]
+
 
     def graphviz(self):
         for k, v in self.cd.items():
-            if isinstance(v, Node):
-                print(f"n{self.idc} -> n{v.idc} [label={k}]")
-            else:
+            if v is None:
                 print(f"n{self.idc} -> {k}")
+            else:
+                print(f"n{self.idc} -> n{v.idc} [label={k}]")
 
     def graphviz_abstract(self, draw_vs=False):
-        cs = {v for k, v in self.cd.items() if isinstance(v, Node)}
+        cs = {v for k, v in self.cd.items() if v is not None}
         for c in cs:
             print(f"n{self.idc} -> n{c.idc}")
         if draw_vs:
-            vs = {k for k, v in self.cd.items() if not isinstance(v, Node)}
+            vs = {k for k, v in self.cd.items() if v is None}
             if vs:
                 print(f"n{self.idc} [label=\"{vs}\"]")
             else:
@@ -59,7 +62,7 @@ class Node:
 
     def full_dict(self):
         def rec(n):
-            return {k: rec(v) for k, v in n.cd.items()} if isinstance(n, Node) else str(n)
+            return {k: rec(v) for k, v in n.cd.items()} if n is not None else str(n)
 
         return {k: rec(v) for k, v in self.cd.items()}
 

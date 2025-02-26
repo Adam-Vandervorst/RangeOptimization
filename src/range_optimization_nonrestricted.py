@@ -3,7 +3,7 @@ from time import monotonic
 from collections import deque
 from itertools import cycle, islice
 
-from src.base_calc import to_digits, to_number, to_size
+from src.base_calc import to_digits, to_number, to_size, digit
 from src.leaf_extension import make_leaf_nodes, next_step, last_layer, last_layer_grouped
 from src.node import Node
 from src.pattern import pattern_and_repetition, pattern
@@ -15,7 +15,7 @@ def skip_elements(iterator, count):
     deque(islice(iterator, count), maxlen=0)
 
 
-def base_layer_with_offset(offset, step, base, l, n_steps=None, grouped=False):
+def base_layer_with_offset(offset: int, step: int, base: int, alloc: list[Node], n_steps=None, grouped=False) -> list[Node]:
     step_digits = to_digits(step, base)
     n_layers = len(step_digits)
 
@@ -23,32 +23,32 @@ def base_layer_with_offset(offset, step, base, l, n_steps=None, grouped=False):
 
     offset_digits = to_size(to_digits(offset, base), n_layers)
 
-    lv_prev = make_leaf_nodes(offset_digits[-1], step_digits[-1], base, l, n_steps)
+    lv_prev = make_leaf_nodes(offset_digits[-1], step_digits[-1], base, alloc, n_steps)
 
     for i in range(2, n_layers):
-        lv_prev = next_step(offset_digits[-i:], step_digits[-i:], lv_prev, base, l, n_steps)
+        lv_prev = next_step(offset_digits[-i:], step_digits[-i:], lv_prev, base, alloc, n_steps)
 
     if grouped:
-        return last_layer_grouped(offset_digits, step_digits, lv_prev, base, l, n_steps)
+        return last_layer_grouped(offset_digits, step_digits, lv_prev, base, alloc, n_steps)
     else:
-        return last_layer(offset_digits, step_digits, lv_prev, base, l, n_steps)
+        return last_layer(offset_digits, step_digits, lv_prev, base, alloc, n_steps)
 
 
-def crange(start: int, stop: int, step: int, base: int, l: list[Node] = None) -> Node:
+def crange(start: int, stop: int, step: int, base: int, alloc: list[Node] = None) -> Node:
     assert base > 1
     assert step > 0
     assert start >= 0
     assert start < stop
 
-    if l is None:
-        l = []
+    if alloc is None:
+        alloc = []
 
     start_digits = to_digits(start, base)
 
     # Generate a tree with only the start number
     if stop - start <= step:
-        n = Node.from_values([start_digits[-1]], l)
-        return add_root(n, start_digits[:-1], l)
+        n = Node.from_values([start_digits[-1]], alloc)
+        return add_root(n, start_digits[:-1], alloc)
 
     last_number = find_last_number_of_range(start, stop, step)
     last_number_digits = to_digits(last_number, base)
@@ -60,10 +60,10 @@ def crange(start: int, stop: int, step: int, base: int, l: list[Node] = None) ->
 
     truncated_start_digits, truncated_last_number_digits, to_add = strip_equal_start(start_digits, last_number_digits)
 
-    return add_root(crange_core(step, base, truncated_start_digits, truncated_last_number_digits, l), to_add, l)
+    return add_root(crange_core(step, base, truncated_start_digits, truncated_last_number_digits, alloc), to_add, alloc)
 
 
-def crange_core(step: int, base: int, start_digits: list[int], stop_digits: list[int], l: list[Node] = None) -> Node:
+def crange_core(step: int, base: int, start_digits: list[digit], stop_digits: list[digit], alloc: list[Node]) -> Node:
     start = to_number(start_digits, base)
     stop = to_number(stop_digits, base)
     assert (stop - start) % step == 0
@@ -77,11 +77,11 @@ def crange_core(step: int, base: int, start_digits: list[int], stop_digits: list
         # e.g. in base range(0, 9, 3) range(0, 45, 10), range(3500, 9000, 1500)
         if step < base:
             p = pattern(step, to_number(start_digits[-step_order:], base), base, n_paths)
-            return Node.from_values(p, l)
+            return Node.from_values(p, alloc)
         if small_range:
-            return base_layer_with_offset(start, step, base, l, n_paths, grouped=True)[0]
+            return base_layer_with_offset(start, step, base, alloc, n_paths, grouped=True)[0]
         else:
-            return base_layer_with_offset(offset, step, base, l, None, grouped=True)[0]
+            return base_layer_with_offset(offset, step, base, alloc, None, grouped=True)[0]
 
     if not small_range or step < base:
         # print("I'm constructing")
@@ -97,18 +97,18 @@ def crange_core(step: int, base: int, start_digits: list[int], stop_digits: list
     # make leaf layer
     if step < base:
         pat_it = iter(cycle(pat))
-        lv1 = [Node.from_values(islice(pat_it, tk), l) for tk in r1]
+        lv1 = [Node.from_values(islice(pat_it, tk), alloc) for tk in r1]
     else:
         if small_range:  # also correct if always false; unused node optimization
             # print("start idx", pat_start_idx, pat_stop_idx)
-            lv1 = base_layer_with_offset(start, step, base, l, n_paths)
+            lv1 = base_layer_with_offset(start, step, base, alloc, n_paths)
             separate_start_group = False
             separate_stop_group = False
 
             start_group = 0
             stop_group = len(lv1) - 1
         else:
-            lv1 = base_layer_with_offset(offset, step, base, l)
+            lv1 = base_layer_with_offset(offset, step, base, alloc)
 
     lv_prev = lv1
 
@@ -126,7 +126,7 @@ def crange_core(step: int, base: int, start_digits: list[int], stop_digits: list
         part_of_pat = [p//(base**(step_order-1)) for p in
                        pat[pat_start_idx:last_idx_start_group + 1]]
 
-        curr_start_node = Node.restrict_node(node_to_copy, part_of_pat, l)
+        curr_start_node = Node.restrict_node(node_to_copy, part_of_pat, alloc)
 
     # extra stop node
     curr_stop_node = None
@@ -138,7 +138,7 @@ def crange_core(step: int, base: int, start_digits: list[int], stop_digits: list
         part_of_pat = [p//(base**(step_order-1)) for p in
                        pat[first_idx_stop_group:pat_stop_idx + 1]]
 
-        curr_stop_node = Node.restrict_node(node_to_copy, part_of_pat, l)
+        curr_stop_node = Node.restrict_node(node_to_copy, part_of_pat, alloc)
 
     # intermediate layers
     # calculate the number of nodes in each layer, which is not the lowest or highest layer
@@ -160,12 +160,12 @@ def crange_core(step: int, base: int, start_digits: list[int], stop_digits: list
         stop_groups_to_skip: int = (eq_stop_node - stop_digits[curr_idx]) % std_nodes
         if separate_start_group:
             nodes = [curr_start_node, *islice(lv_prev_it, base - start_digits[curr_idx] - 1)]
-            curr_start_node = Node.from_children(range(start_digits[curr_idx], base), nodes, l)
+            curr_start_node = Node.from_children(range(start_digits[curr_idx], base), nodes, alloc)
 
         if not separate_start_group and start_digits[curr_idx] > 0:
             separate_start_group = True
             nodes = islice(lv_prev_it, base - start_digits[curr_idx])
-            curr_start_node = Node.from_children(range(start_digits[curr_idx], base), nodes, l)
+            curr_start_node = Node.from_children(range(start_digits[curr_idx], base), nodes, alloc)
 
         next_eq_stop_node = None
         first_node = next(lv_prev_it)
@@ -176,7 +176,7 @@ def crange_core(step: int, base: int, start_digits: list[int], stop_digits: list
             # The node that connects to the previous equivalent stop node with an edge labeled with the current stop-digit, is the new equivalent stop node
             if child_nodes[stop_digits[curr_idx]] == lv_prev[eq_stop_node]:
                 next_eq_stop_node = n
-            lv_curr.append(Node.from_children(range(base), child_nodes, l))
+            lv_curr.append(Node.from_children(range(base), child_nodes, alloc))
 
             peek_node = next(lv_prev_it)
             if peek_node == first_node:
@@ -190,12 +190,12 @@ def crange_core(step: int, base: int, start_digits: list[int], stop_digits: list
 
         if separate_stop_group:
             nodes = [*islice(lv_prev_it_stop, stop_digits[curr_idx]), curr_stop_node]
-            curr_stop_node = Node.from_children(range(0, stop_digits[curr_idx] + 1), nodes, l)
+            curr_stop_node = Node.from_children(range(0, stop_digits[curr_idx] + 1), nodes, alloc)
 
         if not separate_stop_group and stop_digits[curr_idx] < base - 1:
             separate_stop_group = True
             nodes = islice(lv_prev_it_stop, stop_digits[curr_idx] + 1)
-            curr_stop_node = Node.from_children(range(0, stop_digits[curr_idx] + 1), nodes, l)
+            curr_stop_node = Node.from_children(range(0, stop_digits[curr_idx] + 1), nodes, alloc)
 
         lv_prev = lv_curr
 
@@ -218,24 +218,24 @@ def crange_core(step: int, base: int, start_digits: list[int], stop_digits: list
         nodes.append(curr_stop_node)
 
     edge_labels = range(start_digits[0], stop_digits[0] + 1)
-    top_node = Node.from_children(edge_labels, nodes, l)
+    top_node = Node.from_children(edge_labels, nodes, alloc)
 
     return top_node
 
 
-def print_graph(l):
+def print_graph(alloc: list[Node]):
     print("digraph G { \n ranksep=3")
-    for n in l: n.graphviz()
+    for n in alloc: n.graphviz()
     print("}")
 
 
-def abstract_graph(l, draw_vs=False):
+def abstract_graph(alloc: list[Node], draw_vs=False):
     print("strict digraph G { \n ranksep=3")
-    for n in l: n.graphviz_abstract(draw_vs)
+    for n in alloc: n.graphviz_abstract(draw_vs)
     print("}")
 
 
-def main(start, stop, step, base):
+def main(start: int, stop: int, step: int, base: int):
     l = []
     rn = crange(start, stop, step, base, l)
     print("BASE", base)
@@ -270,7 +270,7 @@ def main(start, stop, step, base):
     # print_graph(l_)
 
 
-def large_main(start, stop, step, base):
+def large_main(start: int, stop: int, step: int, base: int):
     from contextlib import redirect_stdout
     t0 = monotonic()
     l = []
@@ -282,13 +282,14 @@ def large_main(start, stop, step, base):
     print("useful nodes:", len(s))
     with open(f"r_{start}_{stop}_{step}_{base}.graphviz", 'w') as f:
         with redirect_stdout(f):
-            print_graph(s)
+            abstract_graph(s)
 
 
 if __name__ == '__main__':
     # main(0, 10000, 113, 10)
     # large_main(0, 6**64, 6**32, 12)
-    large_main(6**8, 6**8 + 2*6**32 + 1, 6**32, 10)
+    large_main(64, 4201542, 1000, 256)
+    # large_main(6**8, 6**8 + 2*6**32 + 1, 6**32, 10)
     # large_main(0, 1000, 113, 10)
     # main(679668, 732633, 75429, 765)
     # main(923, 931, 93, 10)
